@@ -32,6 +32,7 @@ def get_db(name):
 
 # CONST
 USER_COLLECTION = "users"
+BOOK_COLLECTION = "books"
 
 app = Flask(__name__)
 
@@ -39,6 +40,7 @@ app = Flask(__name__)
 @app.route("/register", methods=["POST"])
 def register():
     try:
+        # get db
         db = get_db(os.getenv("MONGODB_DB_NAME"))
         # get body - FOR NOW USE POSTMAN (otherwise use request.json)
         body = {
@@ -73,6 +75,7 @@ def register():
 @app.route("/login", methods=["POST"])
 def login():
     try:
+        # get db
         db = get_db(os.getenv("MONGODB_DB_NAME"))
         # get body - FOR NOW USE POSTMAN (otherwise use request.json)
         body = {
@@ -110,6 +113,118 @@ def login():
         return jsonify({"error": str(e)}), 500
 
 
-# listen 5000
+@app.route("/books", methods=["GET"])
+def books():
+    try:
+        # get db
+        db = get_db(os.getenv("MONGODB_DB_NAME"))
+        # GET
+        books = [{"_id": str(book["_id"]),
+                  "title": book["title"],
+                  "author": book["author"],
+                  "image": book["image"],
+                  "status": book["status"], } for book in db[BOOK_COLLECTION].find()]
+        # return
+        return jsonify({
+            "msg": "Books retrieved successfully",
+            "books": books,
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/borrow/<book_title>", methods=["PATCH"])
+def borrow(book_title):
+    try:
+        # get auth header
+        auth_header = request.headers.get("Authorization")
+        # no auth header?
+        if not auth_header:
+            return jsonify({"error": "Unauthorized"}), 401
+        # get token
+        token = auth_header.split(
+            "Bearer ")[1] if "Bearer " in auth_header else auth_header
+        # token -> payload
+        try:
+            decoded_token = jwt.decode(token, os.getenv(
+                "JWT_SECRET"), algorithms=["HS256"])
+            loggedin_user_email = decoded_token.get("email")
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token has expired"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Invalid token"}), 401
+        # get db
+        db = get_db(os.getenv("MONGODB_DB_NAME"))
+        # GET
+        book = db[BOOK_COLLECTION].find_one({"title": book_title})
+        # no book?
+        if not book:
+            return jsonify({"error": "Book not found"}), 404
+        # borrowed alr?
+        if book["status"] == "borrowed":
+            return jsonify({"error": "Book is already borrowed"}), 400
+        # (book) not borrowed -> borrowed
+        db[BOOK_COLLECTION].update_one(
+            {"title": book_title}, {"$set": {"status": "borrowed"}})
+        # (user) book -> book title
+        db[USER_COLLECTION].update_one({"email": loggedin_user_email}, {
+                                       "$set": {"book": book_title}})
+        # return
+        return jsonify({
+            "msg": "Book borrowed successfully",
+            "book": book_title,
+            "borrower": loggedin_user_email
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/returnBook/<book_title>", methods=["PATCH"])
+def returnBook(book_title):
+    try:
+        # get auth header
+        auth_header = request.headers.get("Authorization")
+        # no auth header?
+        if not auth_header:
+            return jsonify({"error": "Unauthorized"}), 401
+        # get token
+        token = auth_header.split(
+            "Bearer ")[1] if "Bearer " in auth_header else auth_header
+        # token -> payload
+        try:
+            decoded_token = jwt.decode(token, os.getenv(
+                "JWT_SECRET"), algorithms=["HS256"])
+            loggedin_user_email = decoded_token.get("email")
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token has expired"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Invalid token"}), 401
+        # get db
+        db = get_db(os.getenv("MONGODB_DB_NAME"))
+        # GET
+        book = db[BOOK_COLLECTION].find_one({"title": book_title})
+        # no book?
+        if not book:
+            return jsonify({"error": "Book not found"}), 404
+        # returned alr?
+        if book["status"] == "not borrowed":
+            return jsonify({"error": "Book is already returned"}), 400
+        # (book) borrowed -> not borrowed
+        db[BOOK_COLLECTION].update_one(
+            {"title": book_title}, {"$set": {"status": "not borrowed"}})
+        # (user) book -> ""
+        db[USER_COLLECTION].update_one({"email": loggedin_user_email}, {
+                                       "$set": {"book": ""}})
+        # return
+        return jsonify({
+            "msg": "Book returned successfully",
+            "book": book_title,
+            "borrower": loggedin_user_email
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# listen 8080
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=8080, debug=True)
