@@ -1,4 +1,6 @@
 uwsgi
+python-dotenv
 flask
 pymongo
 certifi
+PyJWT
