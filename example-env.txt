@@ -1,0 +1,3 @@
+MONGODB_CONNECTION_STRING=mongodb+srv://ccliffordwilliam:<password>>@cluster0.54ebinm.mongodb.net/
+MONGODB_DB_NAME=pythonLibraryIfabula
+JWT_SECRET=secret
