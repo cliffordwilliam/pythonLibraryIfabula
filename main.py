@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 import os
 from dotenv import load_dotenv
 from pymongo import MongoClient
@@ -35,6 +36,7 @@ USER_COLLECTION = "users"
 BOOK_COLLECTION = "books"
 
 app = Flask(__name__)
+CORS(app)
 
 
 @app.route("/register", methods=["POST"])
@@ -94,7 +96,7 @@ def login():
             # 409 Conflict
             return jsonify({"error": "User not found"}), 404
         # bad password?
-        if body["password"] != existing_user["password"]:
+        if str(body["password"]) != str(existing_user["password"]):
             return jsonify({"msg": "Incorrect password"}), 401
         # payload -> token
         token = jwt.encode({"email": existing_user["email"]}, os.getenv(

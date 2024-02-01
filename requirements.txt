@@ -4,3 +4,4 @@ flask
 pymongo
 certifi
 PyJWT
+flask-cors
