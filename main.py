@@ -135,6 +135,34 @@ def books():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/user/<email>", methods=["GET"])
+def findUserByEmail(email):
+    try:
+        # get auth header
+        auth_header = request.headers.get("Authorization")
+        # no auth header?
+        if not auth_header:
+            return jsonify({"error": "Unauthorized"}), 401
+        # get db
+        db = get_db(os.getenv("MONGODB_DB_NAME"))
+        # GET
+        user = db[USER_COLLECTION].find_one({"email": email})
+        # no user?
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        # return
+        return jsonify({
+            "msg": "User found successfully",
+            "user": {
+                "email": user["email"],
+                "book": user["book"],
+                "status": user["status"],
+            },
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/borrow/<book_title>", methods=["PATCH"])
 def borrow(book_title):
     try:
@@ -163,7 +191,7 @@ def borrow(book_title):
         if not book:
             return jsonify({"error": "Book not found"}), 404
         # borrowed alr?
-        if book["status"] == "borrowed":
+        if str(book["status"]) == "borrowed":
             return jsonify({"error": "Book is already borrowed"}), 400
         # (book) not borrowed -> borrowed
         db[BOOK_COLLECTION].update_one(
