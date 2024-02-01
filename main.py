@@ -79,7 +79,7 @@ def login():
     try:
         # get db
         db = get_db(os.getenv("MONGODB_DB_NAME"))
-        # get body - FOR NOW USE POSTMAN (otherwise use request.json)
+        # get body
         body = {
             "email": request.form.get("email"),
             "password": request.form.get("password"),
@@ -97,7 +97,7 @@ def login():
             return jsonify({"error": "User not found"}), 404
         # bad password?
         if str(body["password"]) != str(existing_user["password"]):
-            return jsonify({"msg": "Incorrect password"}), 401
+            return jsonify({"error": "Incorrect password"}), 401
         # payload -> token
         token = jwt.encode({"email": existing_user["email"]}, os.getenv(
             "JWT_SECRET"), algorithm="HS256")
